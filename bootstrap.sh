@@ -12,17 +12,19 @@ Update
 sudo apt-get dist-upgrade -y
 
 echo "-- Install tools and helpers --"
-sudo apt-get install -y nano gcc g++ make wget htop curl git git-core build-essential libssl-dev php-cli php-zip iotop unzip
+sudo apt-get install -y nano gcc g++ make wget htop curl git git-core ch build-essential libssl-dev php-cli php-zip iotop unzip
 Update
+
+echo "-- Make it fishy --"
+curl -L https://get.oh-my.fish | fish
 
 echo "-- Install NodeJS --"
 sudo curl -sL https://deb.nodesource.com/setup_11.x | bash -
 sudo apt-get install -y nodejs yarn
-Update
-
-echo "-- Install NodeJS Modules--"
 sudo npm update -g
-npm install node-sass gulp gulp-sass gulp-prettier gulp-cssnano --save-dev
+echo "-- Install NodeJS Modules--"
+sudo npm install node-sass gulp gulp-sass gulp-prettier gulp-cssnano -g
+Update
 
 # Install Apache and modules required to run Grav
 echo "-- Install Apache --"
@@ -32,9 +34,10 @@ sudo a2enmod rewrite
 Update
 
 echo "-- Install PHP --"
+sudo apt-get purge php7.*
+Update
 sudo add-apt-repository ppa:ondrej/php -y
 Update
-
 sudo apt-get install -y libmcrypt-dev php7.3 php7.3-bcmath php7.3-cli php7.3-common php7.3-curl php7.3-dev php7.3-fpm php7.3-gd php7.3-intl php7.3-json php7.3-mbstring php7.3-opcache php7.3-xml php7.3-zip libapache2-mod-php7.3 php-apcu
 Update
 
@@ -46,21 +49,27 @@ sudo a2enconf php7.3-fpm
 sudo systemctl restart apache2
 Update
 
-
 echo "-- Creating virtual hosts --"
-sudo ln -fs /vagrant/public/ /var/www/app
-cat << EOF | sudo tee -a /etc/apache2/sites-available/default.conf
-<Directory "/var/www/">
+# Link local grav files to VM apache
+sudo rm -rf /var/www/html
+sudo ln -fs /grav /var/www/html
+
+# Install virtual host config
+VHOST=$(cat <<EOF
+<VirtualHost *:80>
+  DocumentRoot /var/www/html/grav
+
+  <Directory /var/www/html>
     AllowOverride All
     Require all granted
-</Directory>
+  </Directory>
 
-<VirtualHost *:80>
-    DocumentRoot /var/www/grav
-    ServerName 800grad.local
+  ErrorLog /var/log/apache2/error.log
+  CustomLog /var/log/apache2/access.log combined
 </VirtualHost>
 EOF
-sudo a2ensite default.conf
+)
+sudo echo "${VHOST}" > /etc/apache2/sites-available/000-default.conf
 
 echo "-- Restart Apache --"
 sudo systemctl restart apache2
@@ -71,9 +80,8 @@ sudo mv composer.phar /usr/local/bin/composer
 sudo chmod +x /usr/local/bin/composer
 
 #install grav
-composer create-project getgrav/grav /var/www/
-
-#remove default grav userfolder and clone correct one
-cd /var/www/
+cd /var/www/html/
+composer create-project getgrav/grav /var/www/html/grav/
+cd grav
 rm -rf user
 git clone --recurse-submodules https://github.com/800grad/user.git
